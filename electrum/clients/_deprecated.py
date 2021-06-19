@@ -1,100 +1,20 @@
-import logging
-import math
-import threading
-import time
+# Deprecated
 import asyncio
+import math
 import os
 import queue
-import uuid
+import threading
+from typing import List, Callable, Any
 
-from typing import Callable, List, Any
-
-from electrum.network import Network
-from electrum.util import print_msg
-from electrum.simple_config import SimpleConfig
-
-
-class Worker:
-    def __init__(self, *, threads_count: int = None):
-        self.threads_count = threads_count if threads_count is not None else int(os.cpu_count()) - 1
-        self.threads = []
-
-        self.header_queue = asyncio.Queue()
-        self.q = queue.Queue()
-
-    def do_work(self, *, __func__, __task_id__, **kwargs):
-        return self.result.update({__task_id__: __func__(**kwargs)})
-
-    def worker(self):
-        while True:
-            item = self.q.get()
-            if item is None:
-                break
-            item.update({"__thread_name__": threading.current_thread().name})
-            self.do_work(__func__=item.pop("__func__"), __task_id__=item.pop("__task_id__"), **item)
-            self.q.task_done()
-
-    def add_task(self, *, function: Callable, **kwargs):
-        if "__func__" in kwargs:
-            raise Exception("Invalid parameter name: `__func__`")
-        if "__task_id__" in kwargs:
-            raise Exception("Invalid parameter name: `__task_id__`")
-        if "__thread_name__" in kwargs:
-            raise Exception("Invalid parameter name: `__thread_name__`")
-
-        kwargs.update({"__func__": function, "__task_id__": str(uuid.uuid4())})
-        self.q.put(kwargs)
-        return kwargs["__task_id__"]
-
-    def __enter__(self):
-        self.result = {}
-        for i in range(self.threads_count):
-            t = threading.Thread(target=self.worker, name=f"thread_#{i}")
-            t.start()
-            self.threads.append(t)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        for i in range(self.threads_count):
-            self.q.put(None)
-        for t in self.threads:
-            t.join()
+from electrum import SimpleConfig
+from electrum.clients.client import ElectrumClient
+from electrum.clients.worker import Worker
 
 
-class ElectrumClient:
-    def __init__(self, config: SimpleConfig, loop, stopping_fut, loop_thread):
-        self.config = config
-        self.loop, self.stopping_fut, self.loop_thread = loop, stopping_fut, loop_thread
-        self.network = Network(config)
-        self.logger = logging.getLogger("ElectrumClient")
-
-    def run(self, func: Callable, *args, **kwargs):
-        a = asyncio.run_coroutine_threadsafe(func(*args, **kwargs), self.loop)
-        while not a.done():
-            time.sleep(1)
-        return a.result()
-
-    def __enter__(self):
-        self.network.start()
-        while not self.network.is_connected():
-            time.sleep(1)
-            print_msg("waiting for network to get connected...")
-
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        a = asyncio.run_coroutine_threadsafe(self.network.stop(), self.loop)
-        while not a.done():
-            time.sleep(1)
-        return
-
-
-class ElectrumBatchClient(ElectrumClient):
+class DeprecatedElectrumBatchClient(ElectrumClient):
     def __init__(self, config: SimpleConfig, loop, stopping_fut, loop_thread, batch_limit: int):
         super().__init__(config, loop, stopping_fut, loop_thread)
         self.batch_limit = batch_limit
-        self.results = {}
-        self.cc = 0
 
     @staticmethod
     def chunks(lst, n):
@@ -161,7 +81,8 @@ class ElectrumBatchClient(ElectrumClient):
             return result
 
 
-class ElectrumThreadClient(ElectrumBatchClient):
+# Deprecated
+class DeprecatedElectrumThreadClient(DeprecatedElectrumBatchClient):
     """
     example:
         with ElectrumThreadClient(config, loop, stopping_fut, loop_thread, 50) as client:
@@ -169,6 +90,7 @@ class ElectrumThreadClient(ElectrumBatchClient):
             listmempools = client.get_listmempools(script_hashes=script_hashes)
             balances = client.get_balances(script_hashes=script_hashes)
     """
+
     def get_listmempools(self, script_hashes: List[str], *args, **kwargs) -> dict:
         self.logger.info(f"run ElectrumThreadClient.get_listmempools")
         tasks = []
@@ -176,7 +98,7 @@ class ElectrumThreadClient(ElectrumBatchClient):
             for chunk in self.chunks(script_hashes, math.ceil(len(script_hashes) / worker.threads_count)):
                 __kwargs = kwargs
                 __kwargs.update({"func": super().get_listmempools, "script_hashes": chunk})
-                tasks.append(worker.add_task(function=self.run, **__kwargs))
+                tasks.append(worker.add_task(function=self.call, **__kwargs))
         result = {}
         list(map(lambda x: result.update(worker.result[x]), tasks))
         return result
@@ -189,7 +111,7 @@ class ElectrumThreadClient(ElectrumBatchClient):
             for chunk in self.chunks(script_hashes, math.ceil(len(script_hashes) / worker.threads_count)):
                 __kwargs = kwargs
                 __kwargs.update({"func": super().get_listunspents, "script_hashes": chunk})
-                tasks.append(worker.add_task(function=self.run, **__kwargs))
+                tasks.append(worker.add_task(function=self.call, **__kwargs))
         result = {}
         list(map(lambda x: result.update(worker.result[x]), tasks))
         return result
@@ -202,14 +124,14 @@ class ElectrumThreadClient(ElectrumBatchClient):
             for chunk in self.chunks(script_hashes, math.ceil(len(script_hashes) / worker.threads_count)):
                 __kwargs = kwargs
                 __kwargs.update({"func": super().get_balances, "script_hashes": chunk})
-                tasks.append(worker.add_task(function=self.run, **__kwargs))
+                tasks.append(worker.add_task(function=self.call, **__kwargs))
         result = {}
         list(map(lambda x: result.update(worker.result[x]), tasks))
         return result
 
 
 # deprecated
-class __ElectrumThreadClient__(ElectrumBatchClient):
+class DeprecatedElectrumThreadClient_(DeprecatedElectrumBatchClient):
     def __init__(self, config: SimpleConfig, loop, stopping_fut, loop_thread, batch_limit: int):
         self.threads_count = int(os.cpu_count()) - 1
         self.threads = []
@@ -227,7 +149,7 @@ class __ElectrumThreadClient__(ElectrumBatchClient):
             self.q.task_done()
 
     def do_work(self, func, params, thread_numb=0):
-        res = self.run(func, params, thread_numb=thread_numb)
+        res = self.call(func, params, thread_numb=thread_numb)
         self.logger.info(f"data: {len(res)}")
         return self.result.update(res)
 
