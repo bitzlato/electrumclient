@@ -55,33 +55,46 @@ def delete_unread_symbols(string: str):
     return ''.join(char for char in string if char in printable)
 
 
-if __name__ == '__main__':
-    shs = list(map(lambda x: bitcoin.address_to_scripthash(delete_unread_symbols(x.strip())), addresses))
+shs = list(map(lambda x: bitcoin.address_to_scripthash(delete_unread_symbols(x.strip())), addresses))
 
-    print(f"START  ------ {datetime.now()}")
-    with ElectrumThreadBatchClient(network, loop, stopping_fut, loop_thread, 50, thread_count=12) as client:
-        mempools_req_ids = list(map(lambda sh: client.get_listmempools(script_hash=sh), shs))
-        unspents_req_ids = list(map(lambda sh: client.get_listunspents(script_hash=sh), shs))
-        balances_req_ids = list(map(lambda sh: client.get_balances(script_hash=sh), shs))
+start_time = datetime.now()
+print(f"START  ------ {start_time}")
+with ElectrumThreadBatchClient(network, loop, stopping_fut, loop_thread, batch_limit=50, thread_count=12) as client:
+    mempools_req_ids = list(map(lambda sh: client.get_listmempools(script_hash=sh), shs))
+    unspents_req_ids = list(map(lambda sh: client.get_listunspents(script_hash=sh), shs))
+    balances_req_ids = list(map(lambda sh: client.get_balances(script_hash=sh), shs))
 
-    mempools = {}
-    for req_id in mempools_req_ids:
-        mempools.update({client.results[req_id].params[0]: client.results[req_id].result})
-    json.dump(mempools, mempools_res_file.open(mode="w"))
+mempools = {}
+for req_id in mempools_req_ids:
+    mempools.update({client.results[req_id].params[0]: client.results[req_id].result})
+json.dump(mempools, mempools_res_file.open(mode="w"))
 
-    unspents = {}
-    for req_id in unspents_req_ids:
-        unspents.update({client.results[req_id].params[0]: client.results[req_id].result})
-    json.dump(unspents, unspents_res_file.open(mode="w"))
+unspents = {}
+for req_id in unspents_req_ids:
+    unspents.update({client.results[req_id].params[0]: client.results[req_id].result})
+json.dump(unspents, unspents_res_file.open(mode="w"))
 
-    balances = {}
-    for req_id in balances_req_ids:
-        balances.update({client.results[req_id].params[0]: client.results[req_id].result})
-    json.dump(balances, balances_res_file.open(mode="w"))
+balances = {}
+for req_id in balances_req_ids:
+    balances.update({client.results[req_id].params[0]: client.results[req_id].result})
+json.dump(balances, balances_res_file.open(mode="w"))
 
-    print(f"STOP  ------ {datetime.now()}")
+stop_time = datetime.now()
+print(f"STOP  ------ {stop_time}")
 
-    # 620145 requests
-    # 15.37.27.1895  -- start
-    # 15:40:13.1762  -- stop
+print()
+print("---------------------------")
+print(f"start time: {start_time}")
+print(f"stop time: {stop_time}")
+print(f"requests count: {len(addresses * 3)}")  # этот набор данных отправляется в 3 разных метода
+print(f"response count: {len(mempools.values()) + len(unspents.values()) + len(balances.values())}")
+print("---------------------------")
+print()
+
+# ---------------------------
+# start time: 2021-06-19 16:18:58.340717
+# stop time: 2021-06-19 16:21:58.539885
+# requests count: 620145
+# response count: 620145
+# ---------------------------
 
