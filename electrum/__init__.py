@@ -25,7 +25,6 @@ from . import daemon
 from .transaction import Transaction
 from .plugin import BasePlugin
 from .commands import Commands, known_commands
-from .clients import ElectrumThreadBatchClient, ElectrumBatchClient
 
 
 __version__ = ELECTRUM_VERSION

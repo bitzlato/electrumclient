@@ -1276,6 +1276,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
                 server = self._get_next_server_to_try()
                 if server:
                     await self.taskgroup.spawn(self._run_new_interface(server))
+
         async def maintain_healthy_spread_of_connected_servers():
             with self.interfaces_lock: interfaces = list(self.interfaces.values())
             random.shuffle(interfaces)
@@ -1284,6 +1285,7 @@ class Network(Logger, NetworkRetryManager[ServerAddr]):
                     self.logger.info(f"disconnecting from {iface.server}. too many connected "
                                      f"servers already in bucket {iface.bucket_based_on_ipaddress()}")
                     await self._close_interface(iface)
+
         async def maintain_main_interface():
             await self._ensure_there_is_a_main_interface()
             if self.is_connected():
