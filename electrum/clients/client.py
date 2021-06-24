@@ -32,8 +32,8 @@ class ElectrumBatchClient(BaseElectrumClient):
     def get_listmempools(self, script_hash: str, **kwargs) -> Req:
         return self.add_request("blockchain.scripthash.get_mempool", [script_hash], resp_validate_fun=None, **kwargs)
 
-    def get_transact_info(self, tx_hash: str, is_full_object: bool = True, **kwargs) -> Req:
-        return self.add_request("blockchain.transaction.get", [tx_hash, is_full_object], resp_validate_fun=None)
+    def get_transact_info(self, tx_hash: str, is_full_obj: bool = True, **kwargs) -> Req:
+        return self.add_request("blockchain.transaction.get", [tx_hash, is_full_obj], resp_validate_fun=None, **kwargs)
 
     def add_request(self, method: str, params: list, *, resp_validate_fun: Callable = None, **kwargs) -> Req:
         req_id = str(uuid.uuid4())
