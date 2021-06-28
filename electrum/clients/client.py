@@ -58,14 +58,15 @@ class ElectrumBatchClient(BaseElectrumClient):
         except Exception as e:
             self.logger.error(e)
             if self.raise_error is True:
-                raise e
-            return {}
+                res = dict(zip(map(lambda x: x.req_id, requests), e.args[0].results))
+                self.results.update(res)
+            raise e
         return res
 
     async def _send_many_batch_requests(self, requests: Dict, **kwargs):
         thread_name = kwargs.get('__thread_name__', 'thread_#0')
         res = {}
-        if len(requests.values()) < 1:
+        if len(requests) < 1:
             return res
         self.logger.info(f"""{thread_name} started. Target requests count is {len(requests)}""")
         time.sleep(2)
@@ -76,7 +77,7 @@ class ElectrumBatchClient(BaseElectrumClient):
         except Exception as e:
             self.logger.error(e)
             raise e
-        self.logger.info(f"""{thread_name} finished. count of processed requests is {len(self.results.items())}""")
+        self.logger.info(f"""{thread_name} finished. count of processed requests is {len(self.results)}""")
         return res
 
     async def finalize(self):
@@ -101,9 +102,8 @@ class ElectrumBatchClient(BaseElectrumClient):
 class ElectrumAsyncBatchClient(ElectrumBatchClient):
     async def _send_many_batch_requests(self, requests: Dict, **kwargs):
         thread_name = kwargs.get('__thread_name__', 'thread_#0')
-        count = 0
         res = {}
-        if len(requests.values()) < 1:
+        if len(requests) < 1:
             return res
         self.logger.info(f"""{thread_name} started. Target requests count is {len(requests)}""")
         try:
@@ -117,7 +117,7 @@ class ElectrumAsyncBatchClient(ElectrumBatchClient):
         except Exception as e:
             self.logger.error(e)
             raise e
-        self.logger.info(f"""{thread_name} finished. count of processed requests is {count}""")
+        self.logger.info(f"""{thread_name} finished. count of processed requests is {len(self.results)}""")
         return res
 
 
